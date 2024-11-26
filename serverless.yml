@@ -1,0 +1,84 @@
+org: compass159
+
+app: pollybot
+service: pollybot
+
+provider:
+  name: aws
+  runtime: python3.10
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
+          Resource:
+            - arn:aws:dynamodb:us-east-1:*:table/pollybot-table
+        - Effect: Allow
+          Action:
+            - rekognition:DetectLabels
+            - rekognition:DetectModerationLabels
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - comprehend:DetectSentiment
+            - comprehend:DetectEntities
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - transcribe:StartTranscriptionJob
+            - transcribe:GetTranscriptionJob
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - lex:RecognizeText
+            - lex:RecognizeSpeech
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - bedrock:* # Add Bedrock permissions
+          Resource: "*"
+
+functions:
+  processMessage:
+    handler: handler.processMessage
+    events:
+      - http:
+          path: process-message
+          method: post
+    environment:
+      DYNAMODB_TABLE_NAME: pollybot-table
+
+  lexIntegration:
+    handler: handler.lexIntegration
+    events:
+      - http:
+          path: lex-integration
+          method: post
+    environment:
+      DYNAMODB_TABLE_NAME: pollybot-table
+
+resources:
+  Resources:
+    PolbotTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: pollybot-table
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+plugins:
+  - serverless-python-requirements
+  - serverless-iam-roles-per-function
